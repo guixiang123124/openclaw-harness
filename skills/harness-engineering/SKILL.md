@@ -75,7 +75,27 @@ to understand the project without reading every file.]
 
 ### Phase 2: BUILD (Claude Code via ACP)
 
-Spawn a Builder session with FULL context:
+**Option A: Native Claude Code Agent (Recommended)**
+
+If Claude Code is installed locally, use the `--agent` flag with our builder template:
+
+```bash
+# Create worktree for isolated building (recommended)
+cd [project_path]
+git worktree add ../[project]-build feature/[feature-name]
+
+# Run Builder with agent template
+claude --agent=builder -w ../[project]-build --bare -p "Read SPRINT.md and implement all success criteria. Write BUILDER_REPORT.md when done."
+```
+
+The `builder` agent template (in `agents/builder.md`) provides:
+- Strict scoping rules — only modify declared files
+- Mechanical check requirements — compile + lint before reporting
+- Structured report format
+
+**Option B: ACP Session (Remote/Cross-platform)**
+
+Spawn a Builder session via OpenClaw's ACP:
 
 ```
 sessions_spawn:
@@ -109,7 +129,24 @@ sessions_spawn:
   cwd: "[project path]"
 ```
 
-Wait for the Builder to complete.
+**Option C: Parallel Builders (Large tasks)**
+
+For tasks that can be parallelized, split SPRINT.md into sub-sprints and run multiple Builders in separate worktrees:
+
+```bash
+# Create multiple worktrees
+git worktree add ../build-api sprint/api
+git worktree add ../build-frontend sprint/frontend
+git worktree add ../build-tests sprint/tests
+
+# Run builders in parallel
+claude --agent=builder -w ../build-api --bare -p "Read SPRINT-API.md..." &
+claude --agent=builder -w ../build-frontend --bare -p "Read SPRINT-FRONTEND.md..." &
+claude --agent=builder -w ../build-tests --bare -p "Read SPRINT-TESTS.md..." &
+wait
+```
+
+Wait for the Builder(s) to complete.
 
 ### Phase 3: EVALUATE (You do this — be strict!)
 
@@ -190,9 +227,18 @@ Once score ≥ 7.0:
    - Final score
    - Lessons learned
 
-## Advanced: Independent Reviewer (Optional)
+## Advanced: Independent Reviewer
 
-For critical features (payments, auth, data deletion), add a separate review:
+For critical features (payments, auth, data deletion), add an independent review.
+
+**Option A: Native Claude Code Agent (Recommended)**
+
+```bash
+# Use the reviewer agent template — it sees only the code, not the Builder's reasoning
+claude --agent=reviewer -w ../[project]-build --bare -p "Read SPRINT.md and review all changed files. Write REVIEWER_REPORT.md."
+```
+
+**Option B: ACP Session**
 
 ```
 sessions_spawn:
@@ -211,6 +257,20 @@ sessions_spawn:
 ```
 
 The Reviewer's **separate session** prevents evaluation bias — it judges the code, not the Builder's intentions.
+
+## Claude Code Pro Tips
+
+These features (from Claude Code creator Boris Cherny) enhance the harness workflow:
+
+| Feature | Usage | Why It Helps |
+|---------|-------|--------------|
+| `--agent` | `claude --agent=builder` | Custom system prompt per role |
+| `-w` (worktree) | `claude -w ../feature-branch` | Isolated build environment |
+| `--bare` | `claude --bare -p "..."` | 10x faster SDK startup |
+| `/branch` | Run during session | Fork conversation to test alternatives |
+| `/btw` | Run during session | Ask a question without interrupting task |
+| `/loop` | `/loop 5m /babysit` | Auto-monitor running tasks |
+| Chrome ext | Install separately | Let Builder verify frontend visually |
 
 ## Anti-Patterns (Don't Do This)
 

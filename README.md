@@ -16,6 +16,8 @@ OpenClaw Harness is a **native Harness Engineering framework** for OpenClaw. It 
 
 No Docker. No external services. Just OpenClaw + Claude Code.
 
+**v0.6** now supports Claude Code native features: `--agent` templates, git worktrees, `--bare` mode, and parallel builders.
+
 ## Why not DeerFlow?
 
 | | DeerFlow | OpenClaw Harness |
@@ -142,6 +144,46 @@ When asked to build features or fix complex bugs, use the harness workflow:
 6. Deploy only after all checks pass
 ```
 
+## Claude Code Native Features (v0.6)
+
+OpenClaw Harness integrates with Claude Code's most powerful features:
+
+### Agent Templates
+Define specialized agents that Builder and Reviewer sessions use automatically:
+
+```bash
+# Builder uses agents/builder.md system prompt
+claude --agent=builder -w ../my-feature --bare -p "Read SPRINT.md, implement everything."
+
+# Reviewer uses agents/reviewer.md — independent evaluation
+claude --agent=reviewer -w ../my-feature --bare -p "Read SPRINT.md, review all changes."
+```
+
+### Git Worktrees
+Every Build phase runs in an isolated worktree — your main branch stays clean:
+
+```bash
+git worktree add ../feature-build feature/auth-system
+claude --agent=builder -w ../feature-build
+# If it goes wrong, just: git worktree remove ../feature-build
+```
+
+### Parallel Builders
+Split large tasks and run multiple builders simultaneously:
+
+```bash
+claude --agent=builder -w ../build-api --bare -p "Read SPRINT-API.md" &
+claude --agent=builder -w ../build-frontend --bare -p "Read SPRINT-FRONTEND.md" &
+wait  # Both finish, then evaluate together
+```
+
+### Boris Cherny's Pro Tips
+From the Claude Code creator himself — features that supercharge the harness:
+- **`/loop 5m /babysit`** — Auto-monitor running builders
+- **`/branch`** — Fork a session to test alternative approaches
+- **`/btw`** — Ask questions without interrupting the builder
+- **Chrome Extension** — Let the builder visually verify frontend changes
+
 ## Project Structure
 
 ```
@@ -149,6 +191,9 @@ openclaw-harness/
 ├── skills/
 │   └── harness-engineering/
 │       ├── SKILL.md          # Main skill definition
+│       ├── agents/           # Claude Code --agent templates (NEW)
+│       │   ├── builder.md    # Builder agent system prompt
+│       │   └── reviewer.md   # Reviewer agent system prompt
 │       ├── templates/
 │       │   ├── SPRINT.md     # Sprint contract template
 │       │   ├── REVIEW.md     # Review checklist template
@@ -160,6 +205,8 @@ openclaw-harness/
 ├── examples/
 │   ├── brand-style-clone/    # Real example: 5-round harness
 │   └── trendmuse-upgrade/    # Real example: 4-round harness
+├── CHANGELOG.md              # Version history (NEW)
+├── CONTRIBUTING.md           # How to contribute (NEW)
 ├── README.md
 └── LICENSE
 ```
@@ -184,9 +231,10 @@ We built this framework while shipping production features:
 
 ## Contributing
 
-PRs welcome! Especially:
-- New evaluation templates for different project types
+See [CONTRIBUTING.md](CONTRIBUTING.md) for details. We especially want:
+- New agent templates (security auditor, test writer, docs writer)
 - Integration with more ACP agents (Codex, OpenCode, Gemini CLI)
+- Domain-specific evaluation templates
 - Automated test generation from Sprint contracts
 
 ## License
