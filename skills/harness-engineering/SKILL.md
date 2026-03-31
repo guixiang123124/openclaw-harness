@@ -272,6 +272,18 @@ These features (from Claude Code creator Boris Cherny) enhance the harness workf
 | `/loop` | `/loop 5m /babysit` | Auto-monitor running tasks |
 | Chrome ext | Install separately | Let Builder verify frontend visually |
 
+## Sprint Sizing Guide (Learned from Production)
+
+| Sprint Type | Ideal Size | Builder Success Rate | Notes |
+|------------|-----------|---------------------|-------|
+| Backend API endpoint | <100 lines | **95%+** | Include schema + existing patterns |
+| Backend refactor | <150 lines | **80%+** | Clear before/after spec |
+| Frontend component | <100 lines per component | **70%+** | One component per sprint |
+| Frontend page rewrite | >300 lines | **<30%** | ⚠️ Split into component sprints |
+| Full-stack feature | Any size | **<20%** | ⚠️ Always split backend + frontend |
+
+**Rule of thumb:** If a sprint touches >2 files or >150 lines, split it.
+
 ## Anti-Patterns (Don't Do This)
 
 | ❌ Bad | ✅ Good |
@@ -283,6 +295,9 @@ These features (from Claude Code creator Boris Cherny) enhance the harness workf
 | Accept first output | At least 2 rounds of review |
 | Same agent builds and reviews | Separate sessions for review |
 | Giant sprint (20+ criteria) | Break into 2-3 focused sprints |
+| Frontend page rewrite in one sprint | Split into component-level sprints |
+| Trust Builder output without py_compile/tsc | Always run mechanical checks |
+| Skip admin auth on mutation endpoints | Lead must check security in Evaluate |
 
 ## Integration with Superpowers
 
