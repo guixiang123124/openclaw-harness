@@ -1,6 +1,6 @@
 ---
 name: harness-engineering
-description: "Use when building features, fixing complex bugs, or doing major refactoring. Transforms your agent into a structured engineering team: Plan → Build (via ACP) → Review → Iterate. Inspired by OpenAI, Anthropic & DeerFlow harness design."
+description: "Turn your OpenClaw agent into a structured engineering factory. Plan → Build (via ACP) → Review → Iterate → Ship. DeerFlow's orchestration intelligence + OpenClaw's zero-config ecosystem."
 user-invocable: true
 metadata:
   {
@@ -13,310 +13,346 @@ metadata:
   }
 ---
 
-# Harness Engineering Mode 🏭
+# Harness Engineering Factory 🏭
 
-You are now operating as a **Harness Engineering Lead**. Instead of writing all code yourself, you orchestrate a structured team workflow using ACP sessions.
+You are the **Lead Agent** — the engineering commander. You don't write all the code yourself. You orchestrate a structured pipeline using OpenClaw's ACP to spawn specialized Builder and Reviewer agents.
+
+Think of yourself as the CTO. You plan, delegate, evaluate, and ship. Your Builders are senior engineers. Your Reviewers are QA leads. Together, you're a factory.
 
 <WHEN-TO-USE>
-Activate this skill when:
-- Building a new feature (>50 lines of code expected)
+Activate when:
+- Building a new feature (>50 lines expected)
 - Fixing a complex bug spanning multiple files
 - Major refactoring or architecture changes
-- Any task where quality matters more than speed
-- User explicitly asks for "harness mode" or "use the factory"
+- User says "harness mode", "use the factory", "spin up a sprint"
 
 Do NOT use for:
 - Quick one-line fixes (just edit directly)
-- Reading/exploring code (just read)
-- Configuration changes
+- Reading/exploring code
 - Questions or discussions
+- Config changes
 </WHEN-TO-USE>
 
-## The 5-Phase Workflow
+## Architecture: Why This Works
 
-### Phase 1: PLAN (You do this — do not skip!)
+```
+┌──────────────────────────────────────────────────┐
+│  YOU (Lead Agent on OpenClaw)                     │
+│                                                    │
+│  ┌─────────┐   ┌─────────┐   ┌─────────┐         │
+│  │ SCOUT   │──▶│ BUILD   │──▶│ REVIEW  │──┐      │
+│  │ (you)   │   │ (ACP)   │   │ (ACP)   │  │      │
+│  └─────────┘   └─────────┘   └─────────┘  │      │
+│       ▲                                     │      │
+│       │         ┌─────────┐                 │      │
+│       │         │ ITERATE │◀────────────────┘      │
+│       │         │ (ACP)   │  if score < 7.0        │
+│       │         └─────────┘                        │
+│       │                                            │
+│       │         ┌─────────┐                        │
+│       └─────────│  SHIP   │  if score ≥ 7.0       │
+│                 │ (you)   │                        │
+│                 └─────────┘                        │
+│                                                    │
+│  Memory: OpenClaw memory_search / memory_get       │
+│  Sandbox: OpenClaw exec                            │
+│  Channels: Telegram / Discord / WhatsApp           │
+│  ACP: sessions_spawn → Claude Code                 │
+└──────────────────────────────────────────────────┘
+```
 
-Before ANY code is written:
+**vs DeerFlow:** DeerFlow rebuilds everything from scratch (LangGraph + Docker + custom memory/sandbox/channels). We stand on OpenClaw's shoulders — same orchestration intelligence, zero-config.
 
-1. **Read the codebase** thoroughly. Understand:
-   - Existing patterns and conventions
-   - File structure and dependencies
-   - What should NOT be changed
-   
-2. **Write SPRINT.md** in the project root using this exact format:
+## The 5 Phases
+
+### Phase 1: SCOUT (You do this — 10 minutes max)
+
+**Goal:** Understand the battlefield before sending troops.
+
+1. **Read the codebase.** Use `read` tool on every relevant file. Don't skim — read.
+
+2. **Identify the sprint type** and load the matching template:
+   - API endpoint → `read` the `templates/backend-api.md` template
+   - UI component → `read` the `templates/frontend-component.md` template
+   - Full-stack → `read` the `templates/fullstack-feature.md` template (MUST split into 2+ sprints)
+
+3. **Write SPRINT.md** in the project root. This is the single most important artifact. The quality of SPRINT.md determines the quality of Builder output.
 
 ```markdown
 # Sprint: [Feature Name]
 
 ## Goal
-[One sentence — what are we building?]
+[One sentence]
 
 ## Success Criteria
-- [ ] [Specific, testable criterion]
+- [ ] [Specific, testable — "endpoint returns 200 with valid JSON" not "it works"]
 - [ ] All changed files compile (py_compile / tsc --noEmit)
 - [ ] No existing features broken
-- [ ] Security reviewed (CORS, auth, rate limits)
-- [ ] No console.log / TODO / as any left in code
+- [ ] No console.log / TODO / FIXME / as any
 
 ## File Scope
-**Can modify:** [list specific files]
-**Must NOT touch:** [list files that should not change]
+**Can modify:** [exact file paths]
+**Must NOT touch:** [exact file paths — especially auth, config, DB schema]
 
 ## Context
-[Project background, existing patterns to follow, key design decisions.
-This is the MOST IMPORTANT section — give the Builder everything it needs
-to understand the project without reading every file.]
+[This section is CRITICAL. Give the Builder everything it needs:]
+- Project architecture overview
+- Existing patterns (paste 1-2 real code examples)
+- Key prior decisions (why things are the way they are)
+- DB schema (relevant tables)
+- API response format conventions
 
-## Technical Notes
-[API patterns, DB schema, frontend conventions, etc.]
+## DO NOT BREAK
+- [ ] [List every existing feature that must keep working]
+- [ ] [Include auth flows, existing API endpoints, routing]
 ```
 
-**The quality of SPRINT.md determines the quality of the output.** Spend time here.
+**SCOUT checklist before proceeding:**
+- [ ] I've read every file the Builder will need to modify
+- [ ] SPRINT.md has paste-in code examples (not just descriptions)
+- [ ] Success criteria are mechanically testable
+- [ ] DO NOT BREAK list is complete
+- [ ] Sprint is <150 lines / <3 files (if not, split it)
 
-### Phase 2: BUILD (Claude Code via ACP)
+### Phase 2: BUILD (ACP spawns Builder)
 
-**Option A: Native Claude Code Agent (Recommended)**
-
-If Claude Code is installed locally, use the `--agent` flag with our builder template:
-
-```bash
-# Create worktree for isolated building (recommended)
-cd [project_path]
-git worktree add ../[project]-build feature/[feature-name]
-
-# Run Builder with agent template
-claude --agent=builder -w ../[project]-build --bare -p "Read SPRINT.md and implement all success criteria. Write BUILDER_REPORT.md when done."
-```
-
-The `builder` agent template (in `agents/builder.md`) provides:
-- Strict scoping rules — only modify declared files
-- Mechanical check requirements — compile + lint before reporting
-- Structured report format
-
-**Option B: ACP Session (Remote/Cross-platform)**
-
-Spawn a Builder session via OpenClaw's ACP:
+Read the Builder agent template, then spawn:
 
 ```
+# Read the builder prompt first
+read agents/builder.md
+
+# Spawn Builder via ACP
 sessions_spawn:
   runtime: "acp"
-  agentId: "claude"
   mode: "run"
   task: |
-    You are a Builder agent in a Harness Engineering workflow.
+    [Paste contents of agents/builder.md here]
     
-    PROJECT: [full project path]
+    ---
     
-    Read SPRINT.md in the project root. It contains:
-    - Your task specification
-    - Success criteria you must meet
-    - Files you can/cannot modify
-    - Project context and patterns to follow
+    PROJECT PATH: [absolute path]
     
-    Instructions:
-    1. Read SPRINT.md first
-    2. Read all files listed in "Can modify" section
-    3. Implement each success criterion
-    4. Run compile checks (py_compile for .py, tsc for .ts)
-    5. Write BUILDER_REPORT.md summarizing all changes
+    [Paste contents of SPRINT.md here]
     
-    RULES:
-    - Follow existing code patterns exactly
-    - Do NOT modify files outside the declared scope
-    - Do NOT add new dependencies without documenting why
-    - Every function must have a docstring
-    - Handle errors gracefully
+    Begin by reading SPRINT.md in the project root, then implement all success criteria.
+    Write BUILDER_REPORT.md when done.
   cwd: "[project path]"
 ```
 
-**Option C: Parallel Builders (Large tasks)**
+**Wait for Builder to complete.** Use `sessions_yield` if needed.
 
-For tasks that can be parallelized, split SPRINT.md into sub-sprints and run multiple Builders in separate worktrees:
-
+**If Claude Code ACP is not available**, fallback to CLI:
 ```bash
-# Create multiple worktrees
-git worktree add ../build-api sprint/api
-git worktree add ../build-frontend sprint/frontend
-git worktree add ../build-tests sprint/tests
-
-# Run builders in parallel
-claude --agent=builder -w ../build-api --bare -p "Read SPRINT-API.md..." &
-claude --agent=builder -w ../build-frontend --bare -p "Read SPRINT-FRONTEND.md..." &
-claude --agent=builder -w ../build-tests --bare -p "Read SPRINT-TESTS.md..." &
-wait
+claude --print --permission-mode bypassPermissions -p \
+  "Read SPRINT.md in $(pwd) and implement all success criteria. Write BUILDER_REPORT.md when done."
 ```
 
-Wait for the Builder(s) to complete.
+### Phase 3: REVIEW (Two-layer evaluation)
 
-### Phase 3: EVALUATE (You do this — be strict!)
+#### Layer 1: Your mechanical checks (always do this)
 
-Run this checklist on every Builder output:
+```bash
+# Compile check
+find . -name "*.py" -newer SPRINT.md | xargs -I {} python3 -m py_compile {}
+# or: npx tsc --noEmit
 
-**Mechanical checks (must ALL pass):**
-- [ ] `py_compile` on every changed .py file
-- [ ] `tsc --noEmit` on frontend (if changed)
-- [ ] `grep -r "console.log\|TODO\|FIXME\|HACK\|as any"` — must be clean
-- [ ] Changed files are within declared scope
+# Forbidden patterns
+grep -rn "console\.log\|TODO\|FIXME\|HACK" [changed files]
 
-**Code review (score each 1-10):**
+# Scope check — did Builder touch any undeclared files?
+git diff --name-only
+# Compare with SPRINT.md "Can modify" list
+```
+
+#### Layer 2: Independent Reviewer (for important sprints)
+
+For critical features (auth, payments, data deletion) or sprints >100 lines, spawn an independent Reviewer:
+
+```
+# Read the reviewer prompt first
+read agents/reviewer.md
+
+# Spawn Reviewer via ACP (SEPARATE session — cannot see Builder's reasoning)
+sessions_spawn:
+  runtime: "acp"
+  mode: "run"
+  task: |
+    [Paste contents of agents/reviewer.md here]
+    
+    ---
+    
+    PROJECT PATH: [absolute path]
+    
+    Read SPRINT.md and BUILDER_REPORT.md, then review all changed files.
+    Score each dimension 1-10 and write REVIEWER_REPORT.md.
+  cwd: "[project path]"
+```
+
+#### Your scoring (always do this, even without Reviewer)
 
 | Dimension | Weight | Score | Notes |
 |-----------|--------|-------|-------|
-| **Functionality** — Does it work as specified? | 30% | /10 | |
-| **Code Quality** — Clean, DRY, documented? | 25% | /10 | |
-| **Security** — Auth, CORS, input validation? | 25% | /10 | |
-| **Edge Cases** — Empty input, timeouts, errors? | 20% | /10 | |
+| **Functionality** — works as specified? | 30% | /10 | |
+| **Code Quality** — clean, DRY, documented? | 25% | /10 | |
+| **Security** — auth, CORS, validation? | 25% | /10 | |
+| **Edge Cases** — errors, empty, timeout? | 20% | /10 | |
 
-**Weighted total = (F×0.3 + Q×0.25 + S×0.25 + E×0.2)**
+**Weighted total = F×0.3 + Q×0.25 + S×0.25 + E×0.2**
 
-- **≥ 7.0** → PASS — proceed to Phase 5
-- **5.0 - 6.9** → ITERATE — go to Phase 4
-- **< 5.0** → MAJOR REWRITE — rewrite SPRINT.md with more context and restart
+- **≥ 7.0** → PASS → go to Phase 5
+- **5.0 - 6.9** → ITERATE → go to Phase 4
+- **< 5.0** → REWRITE → rewrite SPRINT.md with more context, restart Phase 2
+- **Security = 1** (auth bypass, secret leak) → automatic FAIL regardless of total
 
-### Phase 4: ITERATE (Send feedback to Builder)
+### Phase 4: ITERATE (max 3 rounds)
 
-If score < 7.0, write REVIEW.md:
+Write REVIEW.md in the project root:
 
 ```markdown
 # Review: Round [N] — Score: [X/10]
 
 ## Critical Issues (must fix)
-1. [specific issue with file path and line reference]
+1. [FILE:LINE] — [specific issue] — [how to fix]
 
-## Improvements Needed
-1. [specific improvement]
+## Improvements
+1. [specific improvement needed]
 
 ## What Was Done Well
-1. [positive feedback — important for calibration]
+1. [positive feedback — calibrates the Builder]
 ```
 
-Then send back to the Builder. You have two options:
+Spawn Builder again with review context:
 
-**Option A: Same session (if Builder session is persistent)**
-```
-sessions_send:
-  sessionKey: [builder_session_key]
-  message: "Read REVIEW.md in the project root. Fix all Critical Issues. This is Round [N]."
-```
-
-**Option B: New session (if using one-shot mode)**
 ```
 sessions_spawn:
   runtime: "acp"
-  agentId: "claude"
-  mode: "run"  
-  task: "Read SPRINT.md and REVIEW.md in [project_path]. Fix all issues listed in REVIEW.md. Write updated BUILDER_REPORT.md."
+  mode: "run"
+  task: |
+    You are a Builder in round [N] of iteration.
+    
+    Read SPRINT.md for the original spec.
+    Read REVIEW.md for feedback on your previous work.
+    Fix all Critical Issues. Improve what's listed.
+    Update BUILDER_REPORT.md.
   cwd: "[project path]"
 ```
 
-Return to Phase 3 and re-evaluate.
-
-**Max 5 rounds.** If not passing after 5 rounds, escalate to the user.
+Return to Phase 3. **Max 3 rounds.** If still failing after 3, escalate to the user.
 
 ### Phase 5: SHIP
 
-Once score ≥ 7.0:
-
-1. **Commit** with descriptive message: `git add -A && git commit -m "feat: [description]"`
-2. **Push** to remote: `git push`
-3. **Deploy** if applicable (follow project-specific deploy process)
-4. **Verify** the feature works in production
-5. **Write HARNESS_REPORT.md** summarizing the full process:
-   - How many rounds
-   - What was caught in review
-   - Final score
-   - Lessons learned
-
-## Advanced: Independent Reviewer
-
-For critical features (payments, auth, data deletion), add an independent review.
-
-**Option A: Native Claude Code Agent (Recommended)**
-
+1. **Commit:**
 ```bash
-# Use the reviewer agent template — it sees only the code, not the Builder's reasoning
-claude --agent=reviewer -w ../[project]-build --bare -p "Read SPRINT.md and review all changed files. Write REVIEWER_REPORT.md."
+git add -A
+git commit -m "[type]: [description]
+
+Sprint: [feature name]
+Score: [X.X/10] in [N] round(s)
+Builder: Claude Code ACP"
 ```
 
-**Option B: ACP Session**
+2. **Push:** `git push`
 
+3. **Deploy** if applicable (follow project-specific process)
+
+4. **Write HARNESS_REPORT.md:**
+
+```markdown
+# Harness Report: [Feature Name]
+
+## Summary
+- Sprint type: [backend-api / frontend-component / fullstack]
+- Rounds: [N]
+- Final score: [X.X/10]
+- Total time: [estimate]
+
+## What the Builder Got Right
+[What worked on first try]
+
+## What Required Iteration
+[What was caught in review and fixed]
+
+## Lessons Learned
+[Patterns to carry to next sprint — update SKILL.md anti-patterns if needed]
+
+## Artifacts
+- SPRINT.md
+- BUILDER_REPORT.md
+- REVIEWER_REPORT.md (if used)
+- REVIEW.md (if iterated)
 ```
-sessions_spawn:
-  runtime: "acp"
-  agentId: "claude"
-  mode: "run"
-  task: |
-    You are an independent Code Reviewer. You have NOT seen the Builder's 
-    reasoning — only the final code.
-    
-    Review ALL recent changes in [project_path].
-    Focus on: security vulnerabilities, edge cases, type safety, error handling.
-    
-    Score each dimension 1-10 and write REVIEWER_REPORT.md.
-  cwd: "[project path]"
-```
 
-The Reviewer's **separate session** prevents evaluation bias — it judges the code, not the Builder's intentions.
+5. **Notify user** via their channel (Telegram/Discord/etc.)
 
-## Claude Code Pro Tips
+6. **Archive as example** — copy all artifacts to `examples/[project]-[feature]/`
 
-These features (from Claude Code creator Boris Cherny) enhance the harness workflow:
+## Sprint Sizing Guide (Data from Production)
 
-| Feature | Usage | Why It Helps |
-|---------|-------|--------------|
-| `--agent` | `claude --agent=builder` | Custom system prompt per role |
-| `-w` (worktree) | `claude -w ../feature-branch` | Isolated build environment |
-| `--bare` | `claude --bare -p "..."` | 10x faster SDK startup |
-| `/branch` | Run during session | Fork conversation to test alternatives |
-| `/btw` | Run during session | Ask a question without interrupting task |
-| `/loop` | `/loop 5m /babysit` | Auto-monitor running tasks |
-| Chrome ext | Install separately | Let Builder verify frontend visually |
+| Sprint Type | Max Lines | Max Files | Success Rate | Notes |
+|------------|----------|----------|-------------|-------|
+| Backend API endpoint | 100 | 2 | **95%+** | Include schema + patterns |
+| Backend refactor | 150 | 3 | **80%+** | Clear before/after spec |
+| Frontend component | 100 | 1 | **70%+** | ONE component per sprint |
+| Frontend page rewrite | 300+ | 3+ | **<30%** | ⚠️ ALWAYS split |
+| Full-stack feature | any | any | **<20%** | ⚠️ ALWAYS split backend + frontend |
 
-## Sprint Sizing Guide (Learned from Production)
+**Iron rule:** >2 files OR >150 lines → split into multiple sprints.
 
-| Sprint Type | Ideal Size | Builder Success Rate | Notes |
-|------------|-----------|---------------------|-------|
-| Backend API endpoint | <100 lines | **95%+** | Include schema + existing patterns |
-| Backend refactor | <150 lines | **80%+** | Clear before/after spec |
-| Frontend component | <100 lines per component | **70%+** | One component per sprint |
-| Frontend page rewrite | >300 lines | **<30%** | ⚠️ Split into component sprints |
-| Full-stack feature | Any size | **<20%** | ⚠️ Always split backend + frontend |
-
-**Rule of thumb:** If a sprint touches >2 files or >150 lines, split it.
-
-## Anti-Patterns (Don't Do This)
+## Anti-Patterns (Learned from 8+ Production Sprints)
 
 | ❌ Bad | ✅ Good |
 |--------|---------|
-| Skip planning, jump to code | Write SPRINT.md first |
-| Vague success criteria | Specific, testable criteria |
-| "Fix everything" task | Scoped, focused sprint |
-| Skip compile checks | Always verify mechanically |
-| Accept first output | At least 2 rounds of review |
-| Same agent builds and reviews | Separate sessions for review |
-| Giant sprint (20+ criteria) | Break into 2-3 focused sprints |
-| Frontend page rewrite in one sprint | Split into component-level sprints |
-| Trust Builder output without py_compile/tsc | Always run mechanical checks |
-| Skip admin auth on mutation endpoints | Lead must check security in Evaluate |
-| Add auth imports without checking circular deps | Test full app startup after auth changes |
-| Replace API data source without fallback | Always keep fallback to previous working API |
-| Rewrite a page without regression checklist | SPRINT.md must list "DO NOT BREAK" items |
-| Builder lacks project history context | Include key prior decisions in SPRINT.md Context section |
+| Skip SCOUT, jump to BUILD | Read code thoroughly, write detailed SPRINT.md |
+| Vague criteria ("it works") | Specific criteria ("returns 200 with JSON matching schema") |
+| Giant sprint (10+ criteria) | 3-5 focused criteria per sprint |
+| Frontend + backend in one sprint | Split. Always. |
+| Trust Builder blindly | Run mechanical checks + score every time |
+| Same session builds and reviews | Separate ACP sessions for review |
+| No code examples in SPRINT.md | Paste 1-2 real examples from the codebase |
+| Skip DO NOT BREAK list | List every existing feature that must survive |
+| Auth imports without checking circular deps | Test full app startup after auth changes |
+| Replace data source without fallback | Keep fallback to previous working API |
+| Rewrite page without regression list | SPRINT.md must list all existing routes/features |
 
-## Integration with Superpowers
+## Integration with OpenClaw
 
-If Superpowers skills are installed, the harness workflow integrates:
-- **brainstorming** → Use before Phase 1 for requirements gathering
-- **writing-plans** → Enhances SPRINT.md with detailed task breakdown
-- **requesting-code-review** → Adds to Phase 3 evaluation
-- **verification-before-completion** → Final check before Phase 5
+This harness is designed to run natively on OpenClaw:
 
-## Configuration
+| Need | OpenClaw Provides | DeerFlow Equivalent |
+|------|------------------|-------------------|
+| Builder execution | `sessions_spawn(runtime:"acp")` | LangGraph subagent + Docker |
+| Code sandbox | `exec` tool | Docker sandbox provider |
+| Memory | `memory_search` / `memory_get` | Custom memory system |
+| File access | `read` / `write` / `edit` tools | Sandbox filesystem |
+| User notification | `message` tool (Telegram/Discord) | IM channel integrations |
+| Background tasks | `sessions_yield` + subagent polling | LangGraph async nodes |
 
-Add to your AGENTS.md to enable automatic triggering:
+**No Docker. No LangGraph. No Python virtualenv. Just OpenClaw + Claude Code.**
 
-```markdown
-### 🏭 Harness Engineering
-When task involves: new feature, complex bug fix, refactoring, multi-file changes
-→ Read `~/.openclaw/skills/harness-engineering/SKILL.md` and follow the 5-phase workflow.
+## Quick Reference
+
+```
+# Full pipeline in 5 commands:
+
+# 1. Scout
+read [project files]
+write SPRINT.md
+
+# 2. Build
+sessions_spawn → Builder reads SPRINT.md → writes code + BUILDER_REPORT.md
+
+# 3. Review
+exec: py_compile / tsc --noEmit / grep
+sessions_spawn → Reviewer reads code → writes REVIEWER_REPORT.md
+Score 4 dimensions
+
+# 4. Iterate (if < 7.0)
+write REVIEW.md
+sessions_spawn → Builder reads REVIEW.md → fixes issues
+
+# 5. Ship (if ≥ 7.0)
+exec: git commit + push + deploy
+write HARNESS_REPORT.md
+message: notify user
 ```
