@@ -298,6 +298,10 @@ These features (from Claude Code creator Boris Cherny) enhance the harness workf
 | Frontend page rewrite in one sprint | Split into component-level sprints |
 | Trust Builder output without py_compile/tsc | Always run mechanical checks |
 | Skip admin auth on mutation endpoints | Lead must check security in Evaluate |
+| Add auth imports without checking circular deps | Test full app startup after auth changes |
+| Replace API data source without fallback | Always keep fallback to previous working API |
+| Rewrite a page without regression checklist | SPRINT.md must list "DO NOT BREAK" items |
+| Builder lacks project history context | Include key prior decisions in SPRINT.md Context section |
 
 ## Integration with Superpowers
 
