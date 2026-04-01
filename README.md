@@ -1,246 +1,173 @@
-# 🦞 OpenClaw Harness
+# 🏭 OpenClaw Harness Engineering
 
-> Turn your OpenClaw agent into a team. Ship production-grade code with AI-powered planning, building, and reviewing — all from your chat.
+> Turn your OpenClaw agent into a self-improving engineering factory. Plan → Build (via ACP) → Review → Iterate → Ship.
 
 [![OpenClaw](https://img.shields.io/badge/OpenClaw-compatible-blue?style=flat-square)](https://openclaw.ai)
 [![License](https://img.shields.io/badge/license-MIT-green?style=flat-square)](LICENSE)
 
 ## What is this?
 
-OpenClaw Harness is a **native Harness Engineering framework** for OpenClaw. It turns your single AI agent into a structured engineering team:
+OpenClaw Harness is a **native engineering orchestration framework** for OpenClaw. Your main agent becomes the Lead — it plans sprints, spawns Builder agents via ACP, reviews their output, iterates until quality passes, and ships.
 
-- 🧠 **Planner** — Your main agent breaks down tasks into actionable sprints
-- 🔨 **Builder** — Claude Code (via ACP) implements each sprint
-- 🔍 **Reviewer** — Independent Claude Code session reviews the output
-- 📋 **Evaluator** — Your main agent does final quality assessment
+```
+You: "Add a favorites feature to my app"
 
-No Docker. No external services. Just OpenClaw + Claude Code.
+Lead Agent (your OpenClaw agent):
+  → Reads codebase, writes SPRINT.md
+  → Spawns Claude Code via ACP → code gets written
+  → Reviews output (4 dimensions, 1-10 score)
+  → If score < 7.0 → sends feedback, Builder iterates
+  → Score ≥ 7.0 → commits, pushes, deploys
+  → Reports back to you on Telegram/Discord
+```
 
-**v0.6** now supports Claude Code native features: `--agent` templates, git worktrees, `--bare` mode, and parallel builders.
+No Docker. No LangGraph. No Python virtualenv. Just OpenClaw + ACP.
 
 ## Why not DeerFlow?
 
-| | DeerFlow | OpenClaw Harness |
+| | DeerFlow 2.0 | OpenClaw Harness |
 |---|---|---|
-| Setup | Docker + Python + LangGraph | `openclaw skills install` |
-| Lead Agent | Gemini (limited planning) | **Your agent (Opus/Sonnet)** |
-| File Access | Docker sandbox only | Full workspace access |
-| Memory | memory.json | Your agent's full memory system |
-| Communication | API calls | Native Telegram/Discord/WhatsApp |
-| ACP Auth | Docker OAuth issues | Native — zero config |
+| **Setup** | Docker + LangGraph + 30min | `clawhub install harness-factory` |
+| **Runtime** | LangGraph Server (custom) | OpenClaw Gateway (already running) |
+| **Builder** | CLI wrappers for Claude/Codex | Native ACP sessions |
+| **Memory** | Custom memory system | OpenClaw memory_search |
+| **Sandbox** | Docker containers | OpenClaw exec |
+| **Channels** | Custom IM integrations | Native Telegram/Discord/WhatsApp |
+| **Cost** | Separate server needed | Runs on existing OpenClaw |
+| **Self-improvement** | ❌ | ✅ Cross-sprint learning (v0.9) |
+
+**TL;DR:** DeerFlow rebuilds everything from scratch. We stand on OpenClaw's shoulders.
 
 ## How It Works
 
+### The 5-Phase Pipeline
+
 ```
-You: "Build a user auth system for my app"
-
-Your Agent (Planner):
-  → Reads your codebase
-  → Writes SPRINT.md with tasks + success criteria
-  → Spawns Builder session
-
-Builder (Claude Code ACP):
-  → Reads SPRINT.md
-  → Implements code, step by step
-  → Returns results
-
-Your Agent (Evaluator):
-  → Reviews code quality (4 dimensions)
-  → If pass → deploys
-  → If fail → sends feedback, Builder iterates
-
-You: See the finished result. Ship it.
+┌─────────┐   ┌─────────┐   ┌─────────┐
+│  SCOUT  │──▶│  BUILD  │──▶│ REVIEW  │──┐
+│ (Lead)  │   │  (ACP)  │   │  (Lead) │  │
+└─────────┘   └─────────┘   └─────────┘  │
+                                          │
+              ┌─────────┐                 │
+              │ ITERATE │◀────────────────┘ if < 7.0
+              │  (ACP)  │
+              └────┬────┘
+                   │
+              ┌─────────┐
+              │  SHIP   │  if ≥ 7.0
+              │ (Lead)  │
+              └─────────┘
 ```
+
+1. **Scout** — Lead reads codebase, writes SPRINT.md with success criteria
+2. **Build** — Claude Code (via ACP) implements the sprint
+3. **Review** — Lead scores on 4 dimensions (Functionality, Quality, Security, Edge Cases)
+4. **Iterate** — If score < 7.0, Lead writes feedback, Builder fixes (max 3 rounds)
+5. **Ship** — Commit, push, deploy, report
+
+### 4-Dimension Scoring
+
+| Dimension | Weight | What It Measures |
+|-----------|--------|-----------------|
+| Functionality | 30% | Does it work as specified? |
+| Code Quality | 25% | Clean, DRY, documented? |
+| Security | 25% | Auth, CORS, input validation? |
+| Edge Cases | 20% | Errors, empty input, timeouts? |
+
+**Security floor rule:** Auth bypass or secret leak = automatic FAIL regardless of other scores.
 
 ## Quick Start
 
 ### Install
 ```bash
-openclaw skills install openclaw-harness
+clawhub install harness-factory
+# or
+openclaw skills install harness-factory
 ```
 
-### Or manual install
+### Manual Install
 ```bash
-git clone https://github.com/xianggui/openclaw-harness.git
+git clone https://github.com/guixiang123124/openclaw-harness.git
 cp -r openclaw-harness/skills/* ~/.openclaw/skills/
+cp -r openclaw-harness/agents/ ~/.openclaw/workspace/openclaw-harness/agents/
+cp -r openclaw-harness/templates/ ~/.openclaw/workspace/openclaw-harness/templates/
+```
+
+### ACP Setup (for native Builder spawning)
+```bash
+# Enable ACP backend
+openclaw config set plugins.entries.acpx.enabled true
+openclaw config set acp.enabled true
+openclaw config set acp.backend acpx
+openclaw config set acp.defaultAgent claude
+openclaw config set plugins.entries.acpx.config.permissionMode approve-all
+openclaw gateway restart
 ```
 
 ### Usage
 
-Just tell your agent:
+Tell your agent:
 ```
-"Use harness mode to build [feature description] in [project path]"
-```
-
-Your agent will automatically:
-1. Read the project codebase
-2. Write a Sprint plan
-3. Spawn Claude Code to implement
-4. Review the output
-5. Iterate until quality passes
-6. Report back to you
-
-## The Harness Philosophy
-
-Inspired by:
-- **OpenAI** [Harness Engineering](https://openai.com/index/harness-engineering/) — Environment design, not micromanagement
-- **Anthropic** [Harness Design](https://www.anthropic.com/engineering/harness-design-long-running-apps) — Generator vs Evaluator separation (GAN-inspired)
-- **Google DeepMind** [AutoHarness](https://arxiv.org/abs/2603.03329) — Let AI write its own constraints
-- **ByteDance** [DeerFlow 2.0](https://github.com/bytedance/deer-flow) — Sub-agent orchestration + Skills system
-
-### Core Principles
-
-1. **Separation of concerns** — The one who builds is not the one who judges
-2. **Sprint contracts** — Agree on "done" before writing code
-3. **Progressive disclosure** — Load context on demand, not all at once
-4. **Mechanical verification** — Compile checks + linters before human review
-5. **Iterative quality** — Multiple rounds, each from a different angle
-
-## Sprint Contract Format
-
-Every task starts with a `SPRINT.md`:
-
-```markdown
-# Sprint: [Feature Name]
-
-## Goal
-[One sentence]
-
-## Success Criteria
-- [ ] Feature works as described
-- [ ] All files compile
-- [ ] No existing features broken
-- [ ] Security reviewed
-
-## Scope
-- Can modify: [file list]
-- Must not touch: [file list]
-
-## Context
-[Project background, key decisions, patterns to follow]
+"Use harness mode to add a password reset endpoint to my API"
 ```
 
-## Evaluation Dimensions
-
-| Dimension | Weight | Pass Threshold |
-|-----------|--------|---------------|
-| Functionality | 30% | ≥ 6/10 |
-| Code Quality | 25% | ≥ 6/10 |
-| Security | 25% | ≥ 7/10 |
-| UX / Edge Cases | 20% | ≥ 6/10 |
-
-## Configuration
-
-Add to your `AGENTS.md`:
-
-```markdown
-### Harness Engineering Mode
-When asked to build features or fix complex bugs, use the harness workflow:
-1. Read the relevant code first
-2. Write SPRINT.md with clear success criteria
-3. Use sessions_spawn(runtime:"acp", agentId:"claude") for Builder
-4. Review output against success criteria
-5. Iterate until quality passes (max 5 rounds)
-6. Deploy only after all checks pass
+Or be explicit:
+```
+"Activate harness engineering for /path/to/project — build a favorites feature"
 ```
 
-## Claude Code Native Features (v0.6)
+## Sprint Sizing Guide
 
-OpenClaw Harness integrates with Claude Code's most powerful features:
+| Sprint Type | Max Lines | Success Rate | Notes |
+|------------|----------|-------------|-------|
+| Backend API endpoint | 100 | **95%+** | Include schema + patterns |
+| Backend refactor | 150 | **80%+** | Clear before/after spec |
+| Frontend component | 100 | **70%+** | ONE component per sprint |
+| Frontend page rewrite | 300+ | **<30%** | ⚠️ Always split |
+| Full-stack feature | any | **<20%** | ⚠️ Always split backend + frontend |
 
-### Agent Templates
-Define specialized agents that Builder and Reviewer sessions use automatically:
+## Real Examples
 
-```bash
-# Builder uses agents/builder.md system prompt
-claude --agent=builder -w ../my-feature --bare -p "Read SPRINT.md, implement everything."
+### ArkRoute: Password Change Endpoint
+- **Score:** 8.55/10 (first-try pass)
+- **Builder:** Claude Code via ACP
+- **Time:** ~5 minutes total
+- **Artifacts:** [examples/arkroute-password-change/](examples/arkroute-password-change/)
 
-# Reviewer uses agents/reviewer.md — independent evaluation
-claude --agent=reviewer -w ../my-feature --bare -p "Read SPRINT.md, review all changes."
-```
-
-### Git Worktrees
-Every Build phase runs in an isolated worktree — your main branch stays clean:
-
-```bash
-git worktree add ../feature-build feature/auth-system
-claude --agent=builder -w ../feature-build
-# If it goes wrong, just: git worktree remove ../feature-build
-```
-
-### Parallel Builders
-Split large tasks and run multiple builders simultaneously:
-
-```bash
-claude --agent=builder -w ../build-api --bare -p "Read SPRINT-API.md" &
-claude --agent=builder -w ../build-frontend --bare -p "Read SPRINT-FRONTEND.md" &
-wait  # Both finish, then evaluate together
-```
-
-### Boris Cherny's Pro Tips
-From the Claude Code creator himself — features that supercharge the harness:
-- **`/loop 5m /babysit`** — Auto-monitor running builders
-- **`/branch`** — Fork a session to test alternative approaches
-- **`/btw`** — Ask questions without interrupting the builder
-- **Chrome Extension** — Let the builder visually verify frontend changes
+### TrendMuse: Dashboard 2.0 (4 sprints)
+- **Scores:** 8.55, 8.25, 8.80, 9.00
+- **Features:** Weekly Report API, Auto-sync, Dashboard rewrite, Search + Featured
+- **Artifacts:** [examples/trendmuse-upgrade/](examples/trendmuse-upgrade/)
 
 ## Project Structure
 
 ```
 openclaw-harness/
-├── skills/
-│   └── harness-engineering/
-│       ├── SKILL.md          # Main skill definition
-│       ├── agents/           # Claude Code --agent templates (NEW)
-│       │   ├── builder.md    # Builder agent system prompt
-│       │   └── reviewer.md   # Reviewer agent system prompt
-│       ├── templates/
-│       │   ├── SPRINT.md     # Sprint contract template
-│       │   ├── REVIEW.md     # Review checklist template
-│       │   └── REPORT.md     # Final report template
-│       └── references/
-│           ├── evaluation-dimensions.md
-│           ├── security-checklist.md
-│           └── code-quality-checklist.md
-├── examples/
-│   ├── brand-style-clone/    # Real example: 5-round harness
-│   └── trendmuse-upgrade/    # Real example: 4-round harness
-├── CHANGELOG.md              # Version history (NEW)
-├── CONTRIBUTING.md           # How to contribute (NEW)
-├── README.md
-└── LICENSE
+├── skills/harness-engineering/
+│   └── SKILL.md              ← Core: the executable pipeline
+├── agents/
+│   ├── builder.md            ← Builder agent system prompt
+│   └── reviewer.md           ← Independent Reviewer prompt
+├── templates/
+│   ├── backend-api.md        ← Sprint template for APIs
+│   ├── frontend-component.md ← Sprint template for UI
+│   └── fullstack-feature.md  ← Auto-splitting guide
+├── examples/                  ← Real sprint artifacts
+├── DESIGN-v0.8.md            ← Architecture + DeerFlow analysis
+├── ROADMAP.md                ← v0.8 → v1.0 plans
+└── README.md                 ← This file
 ```
 
-## Real World Results
+## Inspired By
 
-We built this framework while shipping production features:
-
-### Brand Style Clone (FashionFlow)
-- **5 rounds** of harness iteration
-- Round 1: B+ basic implementation
-- Round 4: Found **CORS bug** that would have broken 70% of users
-- Round 5: A+ ship-ready with security audit
-- [See full case study →](examples/brand-style-clone/)
-
-### TrendMuse Full Upgrade
-- **4 rounds** from "mostly broken" to "production ready"
-- Round 1: Audited 53 API endpoints, found root cause
-- Round 3: Found **critical frontend URL bug**
-- Round 4: Added trend scoring + security hardening
-- [See full case study →](examples/trendmuse-upgrade/)
+- **[DeerFlow](https://github.com/bytedance/deer-flow)** — ByteDance's LangGraph-based SuperAgent harness. We learned from their middleware architecture and harness/app split.
+- **[Meta-Harness](https://arxiv.org/abs/2603.28052)** — Stanford's self-improving harness optimization. We're bringing cross-sprint learning to v0.9.
+- **[DSPy](https://github.com/stanfordnlp/dspy)** — Omar Khattab's declarative LM programming. The scoring and iteration philosophy.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details. We especially want:
-- New agent templates (security auditor, test writer, docs writer)
-- Integration with more ACP agents (Codex, OpenCode, Gemini CLI)
-- Domain-specific evaluation templates
-- Automated test generation from Sprint contracts
+See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-MIT
-
----
-
-Built by [Jarvis](https://github.com/xianggui) 🦞 — an AI agent who manages AI teams.
+MIT — see [LICENSE](LICENSE).
